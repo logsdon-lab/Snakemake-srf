@@ -27,14 +27,14 @@ Configuration handled via `config.yaml`:
 threads: 16
 # Directory of fasta files (No multifasta)
 input_dir: "test"
-# input_files: [] # List of fasta files. (No multifasta)
+# # Or list of fasta files. (No multifasta)
+# input_files: [] 
 output_dir: "results"
 log_dir: "logs"
 benchmark_dir: "benchmarks"
 # Config for kmer counting with KMC
 kmer_size: 151
 exclude_kmers_lt_n: 3
-exclude_kmers_gt_n: 1000000000000
 # Config for minimap2 align SRF motifs to fasta
 mm2_max_secondary_alns: 1000000
 mm2_ignore_minimizers_n: 1000
@@ -47,11 +47,11 @@ bed_slop: 500000
 ## Output
 |file|desc|
 |-|-|
-|{output_dir}/{sample}/{srf.bed}|SRF motif bedfile.|
-|{output_dir}/{sample}/{satellite_region.bed}|Satellite region(s) bedfile.|
+|`{output_dir}/{sample}/srf.bed`|SRF motif bedfile.|
+|`{output_dir}/{sample}/satellite_region.bed`|Satellite region(s) bedfile.|
 
 ## Test
-On [HG008-T](https://www.nist.gov/programs-projects/cancer-genome-bottle) (tumor) chr21 centromere.
+On [HG008-T](https://www.nist.gov/programs-projects/cancer-genome-bottle) (Tumor) chr21 centromere.
 ```sh
 snakemake -np --configfile test/config.yaml -c 16 --sdm conda
 ```
