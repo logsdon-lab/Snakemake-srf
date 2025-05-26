@@ -50,8 +50,8 @@ samples:
 ## Output
 |file|desc|
 |-|-|
-|`{output_dir}/{sample}/srf.bed`|SRF motif bedfile.|
-|`{output_dir}/{sample}/satellite_region.bed`|Satellite region(s) bedfile.|
+|`{output_dir}/{sample}/{fname}/srf.bed`|SRF motif bedfile.|
+|`{output_dir}/{sample}/{fname}/satellite_region.bed`|Satellite region(s) bedfile.|
 
 ## Test
 On [HG008-T](https://www.nist.gov/programs-projects/cancer-genome-bottle) (Tumor) chr21 centromere.
