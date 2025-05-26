@@ -1,15 +1,21 @@
 threads: 16
-input_dir: "data"
+
+samples:
+  test_sample:
+    # Or files
+    input_dir: ""
+    parameters:
+      # kmer counting
+      kmer_size: 151
+      exclude_kmers_lt_n: 3
+      # mm2 align motifs to fasta
+      mm2_max_secondary_alns: 1000000
+      mm2_ignore_minimizers_n: 1000
+      mm2_aln_bandwidth: 1000,1000
+      # bed merge and slop.
+      bed_merge: 500000
+      bed_slop: 500000
+
 output_dir: "results"
 log_dir: "logs"
 benchmark_dir: "benchmarks"
-# kmer counting
-kmer_size: 151
-exclude_kmers_lt_n: 3
-# mm2 align motifs to fasta
-mm2_max_secondary_alns: 1000000
-mm2_ignore_minimizers_n: 1000
-mm2_aln_bandwidth: 1000,1000
-# bed merge and slop.
-bed_merge: 500000
-bed_slop: 500000

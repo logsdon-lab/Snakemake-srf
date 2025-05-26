@@ -25,23 +25,26 @@ Configuration handled via `config.yaml`:
 ```yaml
 # General parameters
 threads: 16
-# Directory of fasta files (No multifasta)
-input_dir: "test"
-# # Or list of fasta files. (No multifasta)
-# input_files: [] 
 output_dir: "results"
 log_dir: "logs"
 benchmark_dir: "benchmarks"
-# Config for kmer counting with KMC
-kmer_size: 151
-exclude_kmers_lt_n: 3
-# Config for minimap2 align SRF motifs to fasta
-mm2_max_secondary_alns: 1000000
-mm2_ignore_minimizers_n: 1000
-mm2_aln_bandwidth: "100,100"
-# Config for final region bed merge and slop.
-bed_merge: 500000
-bed_slop: 500000
+samples:
+  test_1: 
+    # Directory of fasta files (No multifasta)
+    input_dir: "test"
+    # # Or list of fasta files. (No multifasta)
+    # input_files: []
+    parameters: 
+      # Config for kmer counting with KMC
+      kmer_size: 151
+      exclude_kmers_lt_n: 3
+      # Config for minimap2 align SRF motifs to fasta
+      mm2_max_secondary_alns: 1000000
+      mm2_ignore_minimizers_n: 1000
+      mm2_aln_bandwidth: "100,100"
+      # Config for final region bed merge and slop.
+      bed_merge: 500000
+      bed_slop: 500000
 ```
 
 ## Output
