@@ -195,26 +195,23 @@ rule merge_and_slop_bed:
 def srf_output(wc):
     outdir = checkpoints.get_fa_srf.get(**wc).output[0]
     fnames = glob_wildcards(join(outdir, "{fname}.fa")).fname
-    return {
-        "srf": expand(rules.create_bed.output, sm=wc.sm, fname=fnames),
-        "bed": expand(rules.merge_and_slop_bed.output, sm=wc.sm, fname=fnames),
-    }
+    return expand(rules.merge_and_slop_bed.output, sm=wc.sm, fname=fnames)
 
 
-# Set checkpoint so can be used if imported as module.
-checkpoint cleanup:
+rule merge_bedfiles_n_cleanup:
     input:
-        unpack(srf_output),
+        bed=srf_output,
         # Cleanup temp dir.
         tmp_dir=rules.get_fa_srf.output,
     output:
-        touch(join(OUTPUT_DIR, "{sm}.done"))
+        join(OUTPUT_DIR, "{sm}", "regions.bed")
     shell:
         """
+        cat {input.bed} > {output}
         rm -rf {input.tmp_dir}
         """
 
 rule all:
     input:
-        expand(rules.cleanup.output, sm=SAMPLES),
+        expand(rules.merge_bedfiles_n_cleanup.output, sm=SAMPLES),
     default_target: True
