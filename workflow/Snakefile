@@ -181,6 +181,8 @@ rule merge_and_slop_bed:
     conda:
         "envs/tools.yaml"
     params:
+        # Filter HORs that fall below one monomer.
+        bp_filter=lambda wc: PARAMS[wc.sm].get("kmer_size", 151),
         bp_merge=lambda wc: PARAMS[wc.sm].get("bed_merge", 500_000),
         bp_slop=lambda wc: PARAMS[wc.sm].get("bed_slop", 500_000),
     log:
@@ -189,7 +191,8 @@ rule merge_and_slop_bed:
         join(BMK_DIR, "merge_and_slop_{sm}_{fname}.txt")
     shell:
         """
-        {{ bedtools merge -i {input.bed} -d {params.bp_merge} | \
+        {{ awk -v OFS="\\t" '$7>={params.bp_filter}' {input.bed} | \
+        bedtools merge -i - -d {params.bp_merge} | \
         bedtools slop -i - -g {input.fai} -b {params.bp_slop} ;}} > {output} 2> {log}
         """
 
