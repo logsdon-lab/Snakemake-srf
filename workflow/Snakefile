@@ -57,13 +57,14 @@ checkpoint get_fa_srf:
     shell:
         """
         mkdir -p {output}
-        for file in $(find {input.infile} -mindepth 1 -maxdepth 1); do
+        # Get all non-hidden files.
+        for file in $(find {input.infile} -mindepth 1 -maxdepth 1 -not -path '*/.*'); do
             # https://tldp.org/LDP/LG/issue18/bash.html 
             new_fname={output.outdir}/$(basename "${{file%%.*}}")".fa"
-            if [[ ${{file}} == *fasta.gz ||  ${{file}} == *fa.gz ]]; then
+            if [[ ${{file}} == *fasta.gz || ${{file}} == *fa.gz ]]; then
                 zcat ${{file}} > ${{new_fname}} 2>> {log}
                 samtools faidx ${{new_fname}} 2>> {log}
-            elif [[ ${{file}} == "*.fasta" || ${{file}} == "*.fa" ]]; then
+            elif [[ ${{file}} == *.fasta || ${{file}} == *.fa ]]; then
                 ln -s $(realpath ${{file}}) ${{new_fname}} 2>> {log}
                 samtools faidx ${{new_fname}} 2>> {log}
             fi
