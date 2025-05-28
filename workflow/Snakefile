@@ -130,12 +130,12 @@ rule get_srf_motifs:
     resources:
         mem="20GB",
     log:
-        join(LOG_DIR, "get_srf_contigs_{sm}_{fname}.log"),
+        join(LOG_DIR, "get_srf_motifs_{sm}_{fname}.log"),
     benchmark:
-        join(BMK_DIR, "get_srf_contigs_{sm}_{fname}.txt")
+        join(BMK_DIR, "get_srf_motifs_{sm}_{fname}.txt")
     shell:
         """
-        ./{input.bn_dir}/srf -p prefix {input.counts} > {output.contigs} 2> {log}
+        ./{input.bn_dir}/srf -p prefix {input.counts} > {output.motifs} 2> {log}
         """
 
 
@@ -186,7 +186,7 @@ rule map_srf_to_source:
         join(BMK_DIR, "map_srf_to_source_{sm}_{fname}.txt")
     shell:
         """
-        ./{input.bn_dir}/srfutils.js enlong {input.contigs} > {output.enlong_contigs} 2> {log}
+        ./{input.bn_dir}/srfutils.js enlong {input.motifs} > {output.enlong_contigs} 2> {log}
         minimap2 -c \
             -N{params.max_secondary_alns} \
             -f{params.ignore_minimizers_n} \
