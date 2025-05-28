@@ -12,9 +12,6 @@ samples:
       mm2_max_secondary_alns: 1000000
       mm2_ignore_minimizers_n: 1000
       mm2_aln_bandwidth: 1000,1000
-      # bed merge and slop.
-      bed_merge: 500000
-      bed_slop: 500000
 
 output_dir: "results"
 log_dir: "logs"

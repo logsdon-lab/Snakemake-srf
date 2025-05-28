@@ -42,16 +42,15 @@ samples:
       mm2_max_secondary_alns: 1000000
       mm2_ignore_minimizers_n: 1000
       mm2_aln_bandwidth: "100,100"
-      # Config for final region bed merge and slop.
-      bed_merge: 500000
-      bed_slop: 500000
 ```
 
 ## Output
 |file|desc|
 |-|-|
 |`{output_dir}/{sample}/{fname}/srf.bed`|SRF motif bedfile.|
-|`{output_dir}/{sample}/{fname}/satellite_region.bed`|Satellite region(s) bedfile.|
+|`{output_dir}/{sample}/{fname}/monomers.tsv`|TRF monomers.|
+|`{output_dir}/{sample}/srf.bed`|SRF motif bedfile for all fnames.|
+|`{output_dir}/{sample}/monomers.tsv`|TRF monomers for all fnames.|
 
 ## Test
 On [HG008-T](https://www.nist.gov/programs-projects/cancer-genome-bottle) (Tumor) chr21 centromere.
