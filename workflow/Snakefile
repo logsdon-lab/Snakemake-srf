@@ -63,7 +63,7 @@ checkpoint get_fa_srf:
     input:
         infile=lambda wc: SAMPLES[wc.sm],
     output:
-        outdir=directory(join(OUTPUT_DIR, "{sm}", "fasta")),
+        outdir=temp(directory(join(OUTPUT_DIR, "{sm}", "fasta"))),
     log:
         join(LOG_DIR, "get_fa_srf_{sm}.log"),
     conda:
@@ -234,8 +234,6 @@ rule merge_files_n_cleanup:
     input:
         bed=srf_output,
         monomers=trf_output,
-        # Cleanup temp dir.
-        tmp_dir=rules.get_fa_srf.output,
     output:
         bed=join(OUTPUT_DIR, "{sm}", "srf.bed"),
         monomers=join(OUTPUT_DIR, "{sm}", "monomers.tsv"),
@@ -243,7 +241,6 @@ rule merge_files_n_cleanup:
         """
         sort -k1,1 -k2,2n {input.bed} > {output.bed}
         sort -k1,1 {input.monomers} > {output.monomers}
-        rm -rf {input.tmp_dir}
         """
 
 
