@@ -135,7 +135,8 @@ rule get_srf_motifs:
         join(BMK_DIR, "get_srf_motifs_{sm}_{fname}.txt")
     shell:
         """
-        ./{input.bn_dir}/srf -p prefix {input.counts} > {output.motifs} 2> {log}
+        {{ ./{input.bn_dir}/srf -p prefix {input.counts} || true ;}} > {output.motifs} 2> {log}
+        rm -f core*
         """
 
 
@@ -155,7 +156,10 @@ rule get_srf_monomer:
         join(BMK_DIR, "get_srf_monomer_{sm}_{fname}.txt")
     shell:
         """
-        ./{input.bn} {input.motifs} | awk -v OFS="\\t" '{{ print "{wildcards.fname}", $0 }}' > {output} 2> {log}
+        if [ -s "{input.motifs}" ]; then
+            ./{input.bn} {input.motifs} | awk -v OFS="\\t" '{{ print "{wildcards.fname}", $0 }}' > {output} 2> {log}
+        fi
+        touch {output}
         """
 
 
