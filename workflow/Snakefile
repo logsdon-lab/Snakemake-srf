@@ -84,23 +84,36 @@ checkpoint get_fa_srf:
         """
 
 
-rule count_high_occurence_kmers:
+# We group multiple commands because multiple rules slows DAG construction considerably.
+rule find_satellites:
     input:
+        bn_srf_dir=rules.compile_srf.output,
+        bn_trf=rules.compile_trf.output.bn,
         infile=join(OUTPUT_DIR, "{sm}", "fasta", "{fname}.fa"),
     output:
-        tmp_dir=temp(directory(join(OUTPUT_DIR, "{sm}", "{fname}", "temp"))),
-        kmer_db_pre=join(OUTPUT_DIR, "{sm}", "{fname}", "count.kmc_suf"),
-        kmer_db_suf=join(OUTPUT_DIR, "{sm}", "{fname}", "count.kmc_pre"),
         kmer_counts=join(OUTPUT_DIR, "{sm}", "{fname}", "count.txt"),
+        motifs=join(OUTPUT_DIR, "{sm}", "{fname}", "srf.fa"),
+        monomers=join(OUTPUT_DIR, "{sm}", "{fname}", "monomers.tsv"),
+        paf=join(OUTPUT_DIR, "{sm}", "{fname}", "srf.paf"),
+        enlong_contigs=join(OUTPUT_DIR, "{sm}", "{fname}", "srf_enlong.fa"),
+        bed=join(OUTPUT_DIR, "{sm}", "{fname}", "srf.bed"),
     threads: config.get("threads", 16)
     params:
-        output_prefix=lambda wc, output: splitext(output.kmer_db_pre)[0],
+        output_prefix=lambda wc, output: splitext(output.kmer_counts)[0],
+        tmp_dir=lambda wc, output: join(dirname(output.kmer_counts), "temp"),
         # Kmer size.
         k=lambda wc: PARAMS[wc.sm].get("kmer_size", 151),
         # Exclude kmers occurring less than n times.
         ci=lambda wc: PARAMS[wc.sm].get("exclude_kmers_lt_n", 3),
         # Maximal value of counter.
         cs=100_000,
+        max_secondary_alns=lambda wc: PARAMS[wc.sm].get(
+            "mm2_max_secondary_alns", 1_000_000
+        ),
+        ignore_minimizers_n=lambda wc: PARAMS[wc.sm].get(
+            "mm2_ignore_minimizers_n", 1000
+        ),
+        aln_bandwidth=lambda wc: PARAMS[wc.sm].get("mm2_aln_bandwidth", "100,100"),
     resources:
         mem="20GB",
     log:
@@ -111,123 +124,43 @@ rule count_high_occurence_kmers:
         "envs/tools.yaml"
     shell:
         """
-        mkdir -p {output.tmp_dir}
+        # Count kmers.
+        mkdir -p {params.tmp_dir}
         kmc -fm -k{params.k} -t{threads} \
             -ci{params.ci} -cs{params.cs} \
             {input.infile} {params.output_prefix} {output.tmp_dir} &> {log}
         kmc_tools transform {params.output_prefix} dump {output.kmer_counts} &>> {log}
-        """
-
-
-rule get_srf_motifs:
-    input:
-        bn_dir=rules.compile_srf.output,
-        counts=rules.count_high_occurence_kmers.output.kmer_counts,
-    output:
-        motifs=join(OUTPUT_DIR, "{sm}", "{fname}", "srf.fa"),
-    conda:
-        "envs/tools.yaml"
-    resources:
-        mem="20GB",
-    log:
-        join(LOG_DIR, "get_srf_motifs_{sm}_{fname}.log"),
-    benchmark:
-        join(BMK_DIR, "get_srf_motifs_{sm}_{fname}.txt")
-    shell:
-        """
-        {{ ./{input.bn_dir}/srf -p prefix {input.counts} || true ;}} > {output.motifs} 2> {log}
+        rmdir {params.tmp_dir}
+        # Get HORs
+        {{ ./{input.bn_srf_dir}/srf -p prefix {output.kmer_counts} || true ;}} > {output.motifs} 2>> {log}
         rm -f core*
-        """
-
-
-rule get_srf_monomer:
-    input:
-        bn=rules.compile_trf.output.bn,
-        motifs=rules.get_srf_motifs.output,
-    output:
-        monomers=join(OUTPUT_DIR, "{sm}", "{fname}", "monomers.tsv"),
-    conda:
-        "envs/tools.yaml"
-    resources:
-        mem="20GB",
-    log:
-        join(LOG_DIR, "get_srf_monomer_{sm}_{fname}.log"),
-    benchmark:
-        join(BMK_DIR, "get_srf_monomer_{sm}_{fname}.txt")
-    shell:
-        """
-        if [ -s "{input.motifs}" ]; then
-            ./{input.bn} {input.motifs} | awk -v OFS="\\t" '{{ print "{wildcards.fname}", $0 }}' > {output} 2> {log}
+        # Get monomers with trf
+        if [ -s "{output.motifs}" ]; then
+            ./{input.bn_trf} {output.motifs} | awk -v OFS="\\t" '{{ print "{wildcards.fname}", $0 }}' > {output.monomers} 2>> {log}
         fi
-        touch {output}
-        """
-
-
-rule map_srf_to_source:
-    input:
-        bn_dir=rules.compile_srf.output,
-        seq=join(OUTPUT_DIR, "{sm}", "fasta", "{fname}.fa"),
-        motifs=rules.get_srf_motifs.output,
-    output:
-        paf=join(OUTPUT_DIR, "{sm}", "{fname}", "srf.paf"),
-        enlong_contigs=join(OUTPUT_DIR, "{sm}", "{fname}", "srf_enlong.fa"),
-    params:
-        max_secondary_alns=lambda wc: PARAMS[wc.sm].get(
-            "mm2_max_secondary_alns", 1_000_000
-        ),
-        ignore_minimizers_n=lambda wc: PARAMS[wc.sm].get(
-            "mm2_ignore_minimizers_n", 1000
-        ),
-        aln_bandwidth=lambda wc: PARAMS[wc.sm].get("mm2_aln_bandwidth", "100,100"),
-    threads: config.get("threads", 16)
-    resources:
-        mem="60GB",
-    conda:
-        "envs/tools.yaml"
-    log:
-        join(LOG_DIR, "map_srf_to_source_{sm}_{fname}.log"),
-    benchmark:
-        join(BMK_DIR, "map_srf_to_source_{sm}_{fname}.txt")
-    shell:
-        """
-        ./{input.bn_dir}/srfutils.js enlong {input.motifs} > {output.enlong_contigs} 2> {log}
+        touch {output.monomers}
+        # Enlong and map to seq.
+        ./{input.bn_srf_dir}/srfutils.js enlong {output.motifs} > {output.enlong_contigs} 2>> {log}
         minimap2 -c \
             -N{params.max_secondary_alns} \
             -f{params.ignore_minimizers_n} \
             -r{params.aln_bandwidth} \
             -t{threads} \
             {output.enlong_contigs} {input.seq} > {output.paf} 2>> {log}
-        """
-
-
-rule create_bed:
-    input:
-        bn_dir=rules.compile_srf.output,
-        paf=rules.map_srf_to_source.output.paf,
-    output:
-        bed=join(OUTPUT_DIR, "{sm}", "{fname}", "srf.bed"),
-    conda:
-        "envs/tools.yaml"
-    log:
-        join(LOG_DIR, "create_bed_{sm}_{fname}.log"),
-    benchmark:
-        join(BMK_DIR, "create_bed_{sm}_{fname}.txt")
-    shell:
-        """
-        {{ ./{input.bn_dir}/srfutils.js paf2bed {input.paf} | sort -k 1,1 -k2,2n ;}} > {output.bed} 2> {log}
+        {{ ./{input.bn_dir}/srfutils.js paf2bed {output.paf} | sort -k 1,1 -k2,2n ;}} > {output.bed} 2>> {log}
         """
 
 
 def srf_output(wc):
     outdir = checkpoints.get_fa_srf.get(**wc).output[0]
     fnames = glob_wildcards(join(outdir, "{fname}.fa")).fname
-    return expand(rules.create_bed.output, sm=wc.sm, fname=fnames)
+    return expand(rules.find_satellites.output.bed, sm=wc.sm, fname=fnames)
 
 
 def trf_output(wc):
     outdir = checkpoints.get_fa_srf.get(**wc).output[0]
     fnames = glob_wildcards(join(outdir, "{fname}.fa")).fname
-    return expand(rules.get_srf_monomer.output, sm=wc.sm, fname=fnames)
+    return expand(rules.find_satellites.output.monomers, sm=wc.sm, fname=fnames)
 
 
 rule merge_files_n_cleanup:
