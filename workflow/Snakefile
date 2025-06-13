@@ -89,7 +89,7 @@ rule find_satellites:
     input:
         bn_srf_dir=rules.compile_srf.output,
         bn_trf=rules.compile_trf.output.bn,
-        infile=join(OUTPUT_DIR, "{sm}", "fasta", "{fname}.fa"),
+        seq=join(OUTPUT_DIR, "{sm}", "fasta", "{fname}.fa"),
     output:
         kmer_counts=join(OUTPUT_DIR, "{sm}", "{fname}", "count.txt"),
         motifs=join(OUTPUT_DIR, "{sm}", "{fname}", "srf.fa"),
@@ -128,7 +128,7 @@ rule find_satellites:
         mkdir -p {params.tmp_dir}
         kmc -fm -k{params.k} -t{threads} \
             -ci{params.ci} -cs{params.cs} \
-            {input.infile} {params.output_prefix} {output.tmp_dir} &> {log}
+            {input.seq} {params.output_prefix} {params.tmp_dir} &> {log}
         kmc_tools transform {params.output_prefix} dump {output.kmer_counts} &>> {log}
         rmdir {params.tmp_dir}
         # Get HORs
@@ -147,7 +147,7 @@ rule find_satellites:
             -r{params.aln_bandwidth} \
             -t{threads} \
             {output.enlong_contigs} {input.seq} > {output.paf} 2>> {log}
-        {{ ./{input.bn_dir}/srfutils.js paf2bed {output.paf} | sort -k 1,1 -k2,2n ;}} > {output.bed} 2>> {log}
+        {{ ./{input.bn_srf_dir}/srfutils.js paf2bed {output.paf} | sort -k 1,1 -k2,2n ;}} > {output.bed} 2>> {log}
         """
 
 
