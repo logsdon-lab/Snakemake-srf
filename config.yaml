@@ -1,5 +1,5 @@
 threads: 16
-
+mem: 20GB
 samples:
   test_sample:
     # Or files

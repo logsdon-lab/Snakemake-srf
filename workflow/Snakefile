@@ -115,7 +115,7 @@ rule find_satellites:
         ),
         aln_bandwidth=lambda wc: PARAMS[wc.sm].get("mm2_aln_bandwidth", "100,100"),
     resources:
-        mem="20GB",
+        mem=config.get("mem", "20GB"),
     log:
         join(LOG_DIR, "find_satellites_{sm}_{fname}.log"),
     benchmark:

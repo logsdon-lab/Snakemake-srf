@@ -25,6 +25,7 @@ Configuration handled via `config.yaml`:
 ```yaml
 # General parameters
 threads: 16
+mem: "20GB"
 output_dir: "results"
 log_dir: "logs"
 benchmark_dir: "benchmarks"
