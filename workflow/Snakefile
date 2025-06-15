@@ -117,9 +117,9 @@ rule find_satellites:
     resources:
         mem="20GB",
     log:
-        join(LOG_DIR, "count_high_occurence_kmers_{sm}_{fname}.log"),
+        join(LOG_DIR, "find_satellites_{sm}_{fname}.log"),
     benchmark:
-        join(BMK_DIR, "count_high_occurence_kmers_{sm}_{fname}.txt")
+        join(BMK_DIR, "find_satellites_{sm}_{fname}.txt")
     conda:
         "envs/tools.yaml"
     shell:
