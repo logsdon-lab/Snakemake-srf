@@ -69,6 +69,8 @@ rule find_satellites:
         outdir=directory(join(OUTPUT_DIR, "{sm}")),
     log:
         join(LOG_DIR, "find_satellites_{sm}.log"),
+    benchmark:
+        join(BMK_DIR, "find_satellites_{sm}.tsv"),
     params:
         # Kmer size.
         k=lambda wc: PARAMS[wc.sm].get("kmer_size", 151),
