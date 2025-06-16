@@ -13,9 +13,9 @@ def get_parameters() -> tuple[dict[str, Any], dict[str, Any]]:
 
     for sm, cfg in config["samples"].items():
         if cfg.get("input_dir"):
-            infiles = cfg["input_dir"]
+            infiles = [abspath(cfg["input_dir"])]
         elif cfg.get("input_files"):
-            infiles = cfg["input_files"]
+            infiles = [abspath(file) for file in cfg["input_files"]]
         else:
             raise FileNotFoundError("No input directory of files provided.")
 
@@ -59,48 +59,17 @@ rule compile_trf:
         """
 
 
-checkpoint get_fa_srf:
-    input:
-        infile=lambda wc: SAMPLES[wc.sm],
-    output:
-        outdir=temp(directory(join(OUTPUT_DIR, "{sm}", "fasta"))),
-    log:
-        join(LOG_DIR, "get_fa_srf_{sm}.log"),
-    conda:
-        "envs/tools.yaml"
-    shell:
-        """
-        mkdir -p {output}
-        # Get all non-hidden files.
-        for file in $(find {input.infile} -mindepth 1 -maxdepth 1 -not -path '*/.*'); do
-            # https://tldp.org/LDP/LG/issue18/bash.html 
-            new_fname={output.outdir}/$(basename "${{file%%.*}}")".fa"
-            if [[ ${{file}} == *fasta.gz || ${{file}} == *fa.gz ]]; then
-                zcat ${{file}} > ${{new_fname}} 2>> {log}
-            elif [[ ${{file}} == *.fasta || ${{file}} == *.fa ]]; then
-                ln -s $(realpath ${{file}}) ${{new_fname}} 2>> {log}
-            fi
-        done
-        """
-
-
-# We group multiple commands because multiple rules slows DAG construction considerably.
 rule find_satellites:
     input:
+        script=workflow.source_path("scripts/find_satellites.sh"),
         bn_srf_dir=rules.compile_srf.output,
         bn_trf=rules.compile_trf.output.bn,
-        seq=join(OUTPUT_DIR, "{sm}", "fasta", "{fname}.fa"),
+        infile=lambda wc: SAMPLES[wc.sm],
     output:
-        kmer_counts=join(OUTPUT_DIR, "{sm}", "{fname}", "count.txt"),
-        motifs=join(OUTPUT_DIR, "{sm}", "{fname}", "srf.fa"),
-        monomers=join(OUTPUT_DIR, "{sm}", "{fname}", "monomers.tsv"),
-        paf=join(OUTPUT_DIR, "{sm}", "{fname}", "srf.paf"),
-        enlong_contigs=join(OUTPUT_DIR, "{sm}", "{fname}", "srf_enlong.fa"),
-        bed=join(OUTPUT_DIR, "{sm}", "{fname}", "srf.bed"),
-    threads: config.get("threads", 16)
+        outdir=directory(join(OUTPUT_DIR, "{sm}")),
+    log:
+        join(LOG_DIR, "find_satellites_{sm}.log"),
     params:
-        output_prefix=lambda wc, output: splitext(output.kmer_counts)[0],
-        tmp_dir=lambda wc, output: join(dirname(output.kmer_counts), "temp"),
         # Kmer size.
         k=lambda wc: PARAMS[wc.sm].get("kmer_size", 151),
         # Exclude kmers occurring less than n times.
@@ -114,70 +83,47 @@ rule find_satellites:
             "mm2_ignore_minimizers_n", 1000
         ),
         aln_bandwidth=lambda wc: PARAMS[wc.sm].get("mm2_aln_bandwidth", "100,100"),
+        working_dir=os.getcwd()
+    # 4 threads per process
+    threads: config.get("threads", 16) // 4
     resources:
         mem=config.get("mem", "20GB"),
-    log:
-        join(LOG_DIR, "find_satellites_{sm}_{fname}.log"),
-    benchmark:
-        join(BMK_DIR, "find_satellites_{sm}_{fname}.txt")
     conda:
         "envs/tools.yaml"
     shell:
         """
-        # Count kmers.
-        mkdir -p {params.tmp_dir}
-        kmc -fm -k{params.k} -t{threads} \
-            -ci{params.ci} -cs{params.cs} \
-            {input.seq} {params.output_prefix} {params.tmp_dir} &> {log}
-        kmc_tools transform {params.output_prefix} dump {output.kmer_counts} &>> {log}
-        rmdir {params.tmp_dir}
-        # Get HORs
-        {{ ./{input.bn_srf_dir}/srf -p prefix {output.kmer_counts} || true ;}} > {output.motifs} 2>> {log}
-        rm -f core*
-        # Get monomers with trf
-        if [ -s "{output.motifs}" ]; then
-            ./{input.bn_trf} {output.motifs} | awk -v OFS="\\t" '{{ print "{wildcards.fname}", $0 }}' > {output.monomers} 2>> {log}
-        fi
-        touch {output.monomers}
-        # Enlong and map to seq.
-        ./{input.bn_srf_dir}/srfutils.js enlong {output.motifs} > {output.enlong_contigs} 2>> {log}
-        minimap2 -c \
-            -N{params.max_secondary_alns} \
-            -f{params.ignore_minimizers_n} \
-            -r{params.aln_bandwidth} \
-            -t{threads} \
-            {output.enlong_contigs} {input.seq} > {output.paf} 2>> {log}
-        {{ ./{input.bn_srf_dir}/srfutils.js paf2bed {output.paf} | sort -k 1,1 -k2,2n ;}} > {output.bed} 2>> {log}
+        mkdir -p {output}
+        {{ find {input.infile} -mindepth 1 -maxdepth 1 -not -path '*/.*' | \
+        xargs -P {threads} -I {{}} bash -c 'cd {params.working_dir}; bash {input.script} \
+            {{}} \
+            {output} \
+            4 \
+            {params.k} \
+            {params.ci} \
+            {params.max_secondary_alns} \
+            {params.ignore_minimizers_n} \
+            {params.aln_bandwidth} \
+            {input.bn_srf_dir} \
+            {input.bn_trf}' ;}} &> {log}
         """
 
-
-def srf_output(wc):
-    outdir = checkpoints.get_fa_srf.get(**wc).output[0]
-    fnames = glob_wildcards(join(outdir, "{fname}.fa")).fname
-    return expand(rules.find_satellites.output.bed, sm=wc.sm, fname=fnames)
-
-
-def trf_output(wc):
-    outdir = checkpoints.get_fa_srf.get(**wc).output[0]
-    fnames = glob_wildcards(join(outdir, "{fname}.fa")).fname
-    return expand(rules.find_satellites.output.monomers, sm=wc.sm, fname=fnames)
-
-
-rule merge_files_n_cleanup:
+rule merge_files:
     input:
-        bed=srf_output,
-        monomers=trf_output,
+        outdir=rules.find_satellites.output
     output:
-        bed=join(OUTPUT_DIR, "{sm}", "srf.bed"),
-        monomers=join(OUTPUT_DIR, "{sm}", "monomers.tsv"),
+        bed=join(OUTPUT_DIR, "srf_{sm}.bed"),
+        monomers=join(OUTPUT_DIR, "monomers_{sm}.tsv"),
+    params:
+        bed_glob=lambda wc, input: join(input[0], "*", "srf.bed"),
+        monomers_glob=lambda wc, input: join(input[0], "*", "monomers.tsv"),
     shell:
         """
-        sort -k1,1 -k2,2n {input.bed} > {output.bed}
-        sort -k1,1 {input.monomers} > {output.monomers}
+        sort -k1,1 -k2,2n {params.bed_glob} > {output.bed}
+        sort -k1,1 {params.monomers_glob} > {output.monomers}
         """
 
 
 rule all:
     input:
-        expand(rules.merge_files_n_cleanup.output, sm=SAMPLES),
+        expand(rules.merge_files.output, sm=SAMPLES),
     default_target: True
