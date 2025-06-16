@@ -13,9 +13,9 @@ def get_parameters() -> tuple[dict[str, Any], dict[str, Any]]:
 
     for sm, cfg in config["samples"].items():
         if cfg.get("input_dir"):
-            infiles = [abspath(cfg["input_dir"])]
+            infiles = cfg["input_dir"]
         elif cfg.get("input_files"):
-            infiles = [abspath(file) for file in cfg["input_files"]]
+            infiles = cfg["input_files"]
         else:
             raise FileNotFoundError("No input directory of files provided.")
 

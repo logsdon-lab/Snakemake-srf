@@ -48,7 +48,7 @@ rm -f core*
 # Get monomers with trf
 if [ -s "${motifs}" ]; then
     ./${bn_trf} "${motifs}" | \
-    awk -v FILENAME="${fname}" -v OFS="\t" '{{ print FILENAME, $0 }}' > "${monomers}"
+    awk -v FNAME="${fname}" -v OFS="\t" '{{ print FNAME, $0 }}' > "${monomers}"
 fi
 touch ${monomers}
 
