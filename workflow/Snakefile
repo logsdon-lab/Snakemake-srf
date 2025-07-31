@@ -87,16 +87,17 @@ rule find_satellites:
         aln_bandwidth=lambda wc: PARAMS[wc.sm].get("mm2_aln_bandwidth", "100,100"),
         working_dir=os.getcwd()
     # 4 threads per process
-    threads: config.get("threads", 16) // 4
+    threads: config.get("threads", 16)
     resources:
         mem=config.get("mem", "20GB"),
+        threads_per_process=config.get("threads", 16) // 4
     conda:
         "envs/tools.yaml"
     shell:
         """
         mkdir -p {output}
         {{ find {input.infile} -mindepth 1 -maxdepth 1 -not -path '*/.*' | \
-        xargs -P {threads} -I {{}} bash -c 'cd {params.working_dir}; bash {input.script} \
+        xargs -P {resources.threads_per_process} -I {{}} bash -c 'cd {params.working_dir}; bash {input.script} \
             {{}} \
             {output} \
             4 \

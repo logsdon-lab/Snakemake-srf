@@ -48,17 +48,20 @@ rm -f core*
 # Get monomers with trf
 if [ -s "${motifs}" ]; then
     ./${bn_trf} "${motifs}" | \
-    awk -v FNAME="${fname}" -v OFS="\t" '{{ print FNAME, $0 }}' > "${monomers}"
+    awk -v FNAME="${fname}" -v OFS="\t" '{{ print $0, FNAME }}' > "${monomers}"
 fi
 touch ${monomers}
 
 # Enlong and map to seq.
 minimap2 -c \
+    --eqx \
     -N ${max_secondary_alns} \
     -f ${ignore_minimizers_n} \
     -r ${aln_bandwidth} \
     -t ${threads} \
     <(./${bn_srf_dir}/srfutils.js enlong ${motifs}) ${seq} > "${paf}"
+
+# TODO: Replace with custom script.
 { ./${bn_srf_dir}/srfutils.js paf2bed ${paf} | sort -k 1,1 -k2,2n ;} > "${bed}"
 
 rm -f ${seq}
