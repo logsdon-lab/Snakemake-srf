@@ -115,13 +115,16 @@ rule merge_files:
         outdir=rules.find_satellites.output
     output:
         bed=join(OUTPUT_DIR, "srf_{sm}.bed"),
+        paf=join(OUTPUT_DIR, "srf_{sm}.paf.gz"),
         monomers=join(OUTPUT_DIR, "monomers_{sm}.tsv"),
     params:
         bed_glob=lambda wc, input: join(input[0], "*", "srf.bed"),
+        paf_glob=lambda wc, input: join(input[0], "*", "srf.paf"),
         monomers_glob=lambda wc, input: join(input[0], "*", "monomers.tsv"),
     shell:
         """
         sort -k1,1 -k2,2n {params.bed_glob} > {output.bed}
+        cat {params.paf_glob} | gzip -f > {output.paf}
         sort -k1,1 {params.monomers_glob} > {output.monomers}
         """
 

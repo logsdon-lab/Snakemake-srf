@@ -61,7 +61,6 @@ minimap2 -c \
     -t ${threads} \
     <(./${bn_srf_dir}/srfutils.js enlong ${motifs}) ${seq} > "${paf}"
 
-# TODO: Replace with custom script.
 { ./${bn_srf_dir}/srfutils.js paf2bed ${paf} | sort -k 1,1 -k2,2n ;} > "${bed}"
 
 rm -f ${seq}
