@@ -1,0 +1,8 @@
+[submodule "workflow/scripts/srf"]
+	path = workflow/scripts/srf
+	url = https://github.com/lh3/srf
+	ignore = dirty
+[submodule "workflow/scripts/trf"]
+	path = workflow/scripts/trf
+	url = https://github.com/lh3/TRF-mod
+	ignore = dirty

@@ -12,7 +12,7 @@ Workflow to run [`srf`](https://github.com/lh3/srf) and determine general satell
 ## Getting Started
 ```sh
 # Ensure have snakemake>=8.0
-git clone https://github.com/koisland/Snakemake-srf.git
+git clone https://github.com/koisland/Snakemake-srf.git --recursive
 cd Snakemake-srf
 ```
 
@@ -49,9 +49,10 @@ samples:
 |file|desc|
 |-|-|
 |`{output_dir}/{sample}/{fname}/srf.bed`|SRF motif bedfile.|
-|`{output_dir}/{sample}/{fname}/monomers.tsv`|TRF monomers.|
-|`{output_dir}/{sample}/srf.bed`|SRF motif bedfile for all fnames.|
-|`{output_dir}/{sample}/monomers.tsv`|TRF monomers for all fnames.|
+|`{output_dir}/{sample}/{fname}/trf_monomers.tsv`|TRF monomers.|
+|`{output_dir}/srf_{sample}.bed`|SRF motif bedfile for all fnames.|
+|`{output_dir}/str_{sample}.paf.gz`|PAF file for all fnames.|
+|`{output_dir}/trf_monomers_{sample}.tsv`|TRF monomers for all fnames.|
 
 ## Test
 On [HG008-T](https://www.nist.gov/programs-projects/cancer-genome-bottle) (Tumor) chr21 centromere.

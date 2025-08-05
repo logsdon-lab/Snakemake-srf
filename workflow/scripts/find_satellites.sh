@@ -10,8 +10,9 @@ ci=${5}
 max_secondary_alns=${6}
 ignore_minimizers_n=${7}
 aln_bandwidth=${8}
-bn_srf_dir=${9}
-bn_trf=${10}
+bn_srf=${9}
+script_utils=${10}
+bn_trf=${11}
 
 fname=$(basename "${infile%%.*}")
 outdir_ctg="${outdir}/${fname}"
@@ -24,13 +25,13 @@ elif [[ ${infile} == *.fasta || ${infile} == *.fa ]]; then
     mkdir -p "${outdir_ctg}"
     ln -s $(realpath ${infile}) ${seq} || true
 else
-    return 0
+    exit 0
 fi
 
 tmp_dir="${outdir_ctg}/temp"
 kmer_counts="${outdir_ctg}/count.txt"
 motifs="${outdir_ctg}/srf.fa"
-monomers="${outdir_ctg}/monomers.tsv"
+monomers="${outdir_ctg}/trf_monomers.tsv"
 paf="${outdir_ctg}/srf.paf"
 bed="${outdir_ctg}/srf.bed"
 
@@ -42,8 +43,9 @@ kmc_tools transform "${outdir_ctg}" dump "${kmer_counts}"
 rmdir "${tmp_dir}"
 
 # Get HORs
-{ ./${bn_srf_dir}/srf -p prefix ${kmer_counts} || true ;} > "${motifs}"
-rm -f core*
+{ ./${bn_srf} -p prefix ${kmer_counts} || true ;} > "${motifs}"
+# Remove any core dumps, kmer counts, and kmc databases.
+rm -f core* "${kmer_counts}" ${outdir_ctg}.kmc_*
 
 # Get monomers with trf
 if [ -s "${motifs}" ]; then
@@ -59,8 +61,8 @@ minimap2 -c \
     -f ${ignore_minimizers_n} \
     -r ${aln_bandwidth} \
     -t ${threads} \
-    <(./${bn_srf_dir}/srfutils.js enlong ${motifs}) ${seq} > "${paf}"
+    <(./${script_utils} enlong ${motifs}) ${seq} > "${paf}"
 
-{ ./${bn_srf_dir}/srfutils.js paf2bed ${paf} | sort -k 1,1 -k2,2n ;} > "${bed}"
+{ ./${script_utils} paf2bed ${paf} | sort -k 1,1 -k2,2n ;} > "${bed}"
 
 rm -f ${seq}

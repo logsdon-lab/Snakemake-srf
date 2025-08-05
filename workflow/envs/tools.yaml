@@ -4,3 +4,4 @@ channels:
 dependencies:
   - kmc==3.2.4
   - minimap2==2.29
+  - make
