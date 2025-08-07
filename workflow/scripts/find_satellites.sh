@@ -43,13 +43,13 @@ kmc_tools transform "${outdir_ctg}" dump "${kmer_counts}"
 rmdir "${tmp_dir}"
 
 # Get HORs
-{ ./${bn_srf} -p prefix ${kmer_counts} || true ;} > "${motifs}"
+{ ${bn_srf} -p prefix ${kmer_counts} || true ;} > "${motifs}"
 # Remove any core dumps, kmer counts, and kmc databases.
 rm -f core* "${kmer_counts}" ${outdir_ctg}.kmc_*
 
 # Get monomers with trf
 if [ -s "${motifs}" ]; then
-    ./${bn_trf} "${motifs}" | \
+    ${bn_trf} "${motifs}" | \
     awk -v FNAME="${fname}" -v OFS="\t" '{{ print $0, FNAME }}' > "${monomers}"
 fi
 touch ${monomers}
@@ -61,8 +61,8 @@ minimap2 -c \
     -f ${ignore_minimizers_n} \
     -r ${aln_bandwidth} \
     -t ${threads} \
-    <(./${script_utils} enlong ${motifs}) ${seq} > "${paf}"
+    <(${script_utils} enlong ${motifs}) ${seq} > "${paf}"
 
-{ ./${script_utils} paf2bed ${paf} | sort -k 1,1 -k2,2n ;} > "${bed}"
+{ ${script_utils} paf2bed ${paf} | sort -k 1,1 -k2,2n ;} > "${bed}"
 
 rm -f ${seq}
