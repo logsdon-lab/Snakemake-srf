@@ -61,8 +61,8 @@ minimap2 -c \
     -f ${ignore_minimizers_n} \
     -r ${aln_bandwidth} \
     -t ${threads} \
-    <(${script_utils} enlong ${motifs}) ${seq} > "${paf}"
+    <(k8 ${script_utils} enlong ${motifs}) ${seq} > "${paf}"
 
-{ ${script_utils} paf2bed ${paf} | sort -k 1,1 -k2,2n ;} > "${bed}"
+{ k8 ${script_utils} paf2bed ${paf} | sort -k 1,1 -k2,2n ;} > "${bed}"
 
 rm -f ${seq}

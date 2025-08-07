@@ -133,7 +133,7 @@ rule merge_files:
     params:
         bed_glob=lambda wc, input: join(input[0], "*", "srf.bed"),
         paf_glob=lambda wc, input: join(input[0], "*", "srf.paf"),
-        monomers_glob=lambda wc, input: join(input[0], "*", "monomers.tsv"),
+        monomers_glob=lambda wc, input: join(input[0], "*", "trf_monomers.tsv"),
     shell:
         """
         sort -k1,1 -k2,2n {params.bed_glob} > {output.bed}
