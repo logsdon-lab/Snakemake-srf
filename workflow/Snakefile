@@ -36,6 +36,7 @@ wildcard_constraints:
 
 rule compile_srf:
     input:
+        wf_dir=WF_DIR,
         src_mk=workflow.source_path("scripts/srf/Makefile"),
     output:
         bn=join(WF_DIR, "scripts", "srf", "srf"),
@@ -53,6 +54,7 @@ rule compile_srf:
 
 rule compile_trf:
     input:
+        wf_dir=WF_DIR,
         src_mk=workflow.source_path("scripts/trf/compile.mak"),
     output:
         bn=join(WF_DIR, "scripts", "trf", "trf-mod"),
