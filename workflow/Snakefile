@@ -41,7 +41,7 @@ rule compile_srf:
     log:
         abspath(join(LOG_DIR, "compile_srf.log")),
     params:
-        src_dir=lambda wc, input: dirname(input.src_mk)
+        src_dir=lambda wc, output: dirname(output.bn)
     conda:
         "envs/tools.yaml"
     shell:
@@ -58,7 +58,7 @@ rule compile_trf:
     log:
         abspath(join(LOG_DIR, "compile_trf.log")),
     params:
-        src_dir=lambda wc, input: dirname(input.src_mk)
+        src_dir=lambda wc, output: dirname(output.bn)
     conda:
         "envs/tools.yaml"
     shell:
