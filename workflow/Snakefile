@@ -35,38 +35,42 @@ wildcard_constraints:
 
 rule compile_srf:
     input:
-        src_dir="workflow/scripts/srf"
+        src_mk=workflow.source_path("scripts/srf/Makefile"),
     output:
         bn=join("workflow", "scripts", "srf", "srf"),
     log:
         abspath(join(LOG_DIR, "compile_srf.log")),
+    params:
+        src_dir=lambda wc, input: dirname(input.src_mk)
     conda:
         "envs/tools.yaml"
     shell:
         """
-        cd {input.src_dir} && make &> {log}
+        cd {params.src_dir} && make &> {log}
         """
 
 
 rule compile_trf:
     input:
-        src_dir="workflow/scripts/trf"
+        src_mk=workflow.source_path("scripts/trf/compile.mak"),
     output:
         bn=join("workflow", "scripts", "trf", "trf-mod"),
     log:
         abspath(join(LOG_DIR, "compile_trf.log")),
+    params:
+        src_dir=lambda wc, input: dirname(input.src_mk)
     conda:
         "envs/tools.yaml"
     shell:
         """
-        cd {input.src_dir} && make -f compile.mak &> {log}
+        cd {params.src_dir} && make -f {input.src_mk} &> {log}
         """
 
 
 rule find_satellites:
     input:
         bn_srf=rules.compile_srf.output.bn,
-        script_utils=join("workflow", "scripts", "srf", "srfutils.js"),
+        script_utils=workflow.source_path(join("scripts", "srf", "srfutils.js")),
         bn_trf=rules.compile_trf.output.bn,
         infile=lambda wc: SAMPLES[wc.sm],
     output:
