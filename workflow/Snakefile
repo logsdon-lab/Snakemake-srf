@@ -5,6 +5,7 @@ from os.path import join, splitext, abspath, dirname
 LOG_DIR = config.get("log_dir", "logs")
 BMK_DIR = config.get("benchmark_dir", "benchmarks")
 OUTPUT_DIR = config.get("output_dir", "results")
+WF_DIR = config.get("workflow_dir", workflow.basedir)
 
 
 def get_parameters() -> tuple[dict[str, Any], dict[str, Any]]:
@@ -37,7 +38,7 @@ rule compile_srf:
     input:
         src_mk=workflow.source_path("scripts/srf/Makefile"),
     output:
-        bn=join("workflow", "scripts", "srf", "srf"),
+        bn=join(WF_DIR, "scripts", "srf", "srf"),
     log:
         abspath(join(LOG_DIR, "compile_srf.log")),
     params:
@@ -54,7 +55,7 @@ rule compile_trf:
     input:
         src_mk=workflow.source_path("scripts/trf/compile.mak"),
     output:
-        bn=join("workflow", "scripts", "trf", "trf-mod"),
+        bn=join(WF_DIR, "scripts", "trf", "trf-mod"),
     log:
         abspath(join(LOG_DIR, "compile_trf.log")),
     params:
