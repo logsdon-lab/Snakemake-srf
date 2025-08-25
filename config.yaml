@@ -8,6 +8,9 @@ samples:
       # kmer counting
       kmer_size: 171
       exclude_kmers_lt_n: 20
+      # Filter only motifs with monomers with these periodicities.
+      mon_periods: [170, 340, 680, 850, 1020, 42]
+      perc_mon_len_diff: 0.02
       # mm2 align motifs to fasta
       mm2_max_secondary_alns: 1000000
       mm2_ignore_minimizers_n: 1000

@@ -157,9 +157,40 @@ rule get_monomers:
         """
 
 
-rule map_motifs:
+"""
+Filter motifs to those with desired monomer periods. Reduces runtime of mapping.
+"""
+rule filter_motifs:
     input:
         motifs=rules.create_motifs.output,
+        monomers=rules.get_monomers.output,
+    output:
+        motifs=join(OUTPUT_DIR, "{sm}", "srf_filtered.fa"),
+    params:
+        script=workflow.source_path(join("scripts", "srf-n-trf")),
+        mon_periods=lambda wc: PARAMS[wc.sm].get("mon_periods"),
+        perc_mon_len_diff=lambda wc: PARAMS[wc.sm].get("perc_mon_len_diff"),
+    log:
+        join(LOG_DIR, "filter_motifs_{sm}.log"),
+    benchmark:
+        join(BMK_DIR, "filter_motifs_{sm}.tsv"),
+    shell:
+        """
+        {params.script} motifs \
+        -f {input.motifs} \
+        -m {input.monomers} \
+        -s {params.mon_periods} \
+        -d {params.perc_mon_len_diff} > {output.motifs} 2> {log}
+        """
+
+
+rule map_motifs:
+    input:
+        motifs=lambda wc: (
+            rules.filter_motifs.output
+            if PARAMS[wc.sm].get("mon_periods") and PARAMS[wc.sm].get("perc_mon_len_diff")
+            else rules.create_motifs.output
+        ),
         infile=rules.merge_sequences.output,
     output:
         join(OUTPUT_DIR, "{sm}", "srf.paf.gz"),
