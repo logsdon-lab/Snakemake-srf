@@ -164,10 +164,10 @@ rule filter_motifs:
     input:
         motifs=rules.create_motifs.output,
         monomers=rules.get_monomers.output,
+        script=join(WF_DIR, "scripts", "srf-n-trf"),
     output:
         motifs=join(OUTPUT_DIR, "{sm}", "srf_filtered.fa"),
     params:
-        script=workflow.source_path(join("scripts", "srf-n-trf")),
         mon_periods=lambda wc: PARAMS[wc.sm].get("mon_periods"),
         perc_mon_len_diff=lambda wc: PARAMS[wc.sm].get("perc_mon_len_diff"),
     log:
@@ -176,7 +176,7 @@ rule filter_motifs:
         join(BMK_DIR, "filter_motifs_{sm}.tsv"),
     shell:
         """
-        {params.script} motifs \
+        {input.script} motifs \
         -f {input.motifs} \
         -m {input.monomers} \
         -s {params.mon_periods} \
