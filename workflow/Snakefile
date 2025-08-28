@@ -164,7 +164,6 @@ rule filter_motifs:
     input:
         motifs=rules.create_motifs.output,
         monomers=rules.get_monomers.output,
-        script=join(WF_DIR, "scripts", "srf-n-trf"),
     output:
         motifs=join(OUTPUT_DIR, "{sm}", "srf_filtered.fa"),
     params:
@@ -173,7 +172,9 @@ rule filter_motifs:
     log:
         join(LOG_DIR, "filter_motifs_{sm}.log"),
     benchmark:
-        join(BMK_DIR, "filter_motifs_{sm}.tsv"),
+        join(BMK_DIR, "filter_motifs_{sm}.tsv")
+    conda:
+        "envs/tools.yaml"
     shell:
         """
         {input.script} motifs \
