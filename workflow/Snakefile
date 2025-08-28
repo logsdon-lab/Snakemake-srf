@@ -1,3 +1,4 @@
+import glob
 from typing import Any
 from os.path import join, splitext, abspath, dirname
 
@@ -14,7 +15,14 @@ def get_parameters() -> tuple[dict[str, Any], dict[str, Any]]:
 
     for sm, cfg in config["samples"].items():
         if cfg.get("input_dir"):
-            infiles = cfg["input_dir"]
+            infiles = [
+                *glob.glob(join(cfg["input_dir"], "*.fa")),
+                *glob.glob(join(cfg["input_dir"], "*.fa.gz")),
+                *glob.glob(join(cfg["input_dir"], "*.fasta")),
+                *glob.glob(join(cfg["input_dir"], "*.fasta.gz")),
+            ]
+        elif cfg.get("input_file"):
+            infiles = [cfg["input_file"]]
         elif cfg.get("input_files"):
             infiles = cfg["input_files"]
         else:
@@ -31,7 +39,6 @@ SAMPLES, PARAMS = get_parameters()
 
 wildcard_constraints:
     sm="|".join(SAMPLES.keys()),
-    fname=r"[^\/]+",
 
 
 rule compile_srf:
@@ -43,7 +50,7 @@ rule compile_srf:
     log:
         abspath(join(LOG_DIR, "compile_srf.log")),
     params:
-        src_dir=lambda wc, output: dirname(output.bn)
+        src_dir=lambda wc, output: dirname(output.bn),
     conda:
         "envs/tools.yaml"
     shell:
@@ -61,7 +68,7 @@ rule compile_trf:
     log:
         abspath(join(LOG_DIR, "compile_trf.log")),
     params:
-        src_dir=lambda wc, output: dirname(output.bn)
+        src_dir=lambda wc, output: dirname(output.bn),
     conda:
         "envs/tools.yaml"
     shell:
@@ -70,26 +77,132 @@ rule compile_trf:
         """
 
 
-rule find_satellites:
+rule merge_sequences:
     input:
-        bn_srf=rules.compile_srf.output.bn,
-        script_utils=workflow.source_path(join("scripts", "srf", "srfutils.js")),
-        bn_trf=rules.compile_trf.output.bn,
         infile=lambda wc: SAMPLES[wc.sm],
     output:
-        outdir=directory(join(OUTPUT_DIR, "{sm}")),
-    log:
-        join(LOG_DIR, "find_satellites_{sm}.log"),
-    benchmark:
-        join(BMK_DIR, "find_satellites_{sm}.tsv"),
+        temp(join(OUTPUT_DIR, "{sm}.fasta")),
+    shell:
+        """
+        zcat -f {input} > {output}
+        """
+
+
+rule count_kmers:
+    input:
+        infile=rules.merge_sequences.output,
+    output:
+        kmer_counts=join(OUTPUT_DIR, "{sm}", "count.txt"),
     params:
-        script=workflow.source_path("scripts/find_satellites.sh"),
         # Kmer size.
-        k=lambda wc: PARAMS[wc.sm].get("kmer_size", 151),
+        k=lambda wc: PARAMS[wc.sm].get("kmer_size", 171),
         # Exclude kmers occurring less than n times.
-        ci=lambda wc: PARAMS[wc.sm].get("exclude_kmers_lt_n", 3),
+        ci=lambda wc: PARAMS[wc.sm].get("exclude_kmers_lt_n", 20),
         # Maximal value of counter.
         cs=100_000,
+        output_dir=lambda wc, output: dirname(output.kmer_counts),
+    threads: config.get("threads", 16)
+    log:
+        join(LOG_DIR, "count_kmers_{sm}.log"),
+    benchmark:
+        join(BMK_DIR, "count_kmers_{sm}.tsv")
+    conda:
+        "envs/tools.yaml"
+    shell:
+        """
+        tmp_dir={params.output_dir}/temp
+        mkdir -p ${{tmp_dir}}
+        kmc -fm -k{params.k} -t{threads} -ci{params.ci} -cs{params.cs} \
+            {input} {params.output_dir} ${{tmp_dir}} 2> {log}
+        kmc_tools transform {params.output_dir} dump {output.kmer_counts} 2>> {log}
+        rmdir ${{tmp_dir}}
+        rm -f {params.output_dir}.kmc_*
+        """
+
+
+rule create_motifs:
+    input:
+        bn_srf=rules.compile_srf.output.bn,
+        kmer_counts=rules.count_kmers.output,
+    output:
+        motifs=join(OUTPUT_DIR, "{sm}", "srf.fa"),
+    log:
+        join(LOG_DIR, "create_motifs_{sm}.log"),
+    benchmark:
+        join(BMK_DIR, "create_motifs_{sm}.tsv")
+    shell:
+        """
+        {{ {input.bn_srf} -p prefix {input.kmer_counts} || true ;}} > {output.motifs} 2> {log}
+        touch {output}
+        # Remove any core dumps if fails.
+        rm -f core*
+        """
+
+
+rule get_monomers:
+    input:
+        bn_trf=rules.compile_trf.output.bn,
+        motifs=rules.create_motifs.output,
+    output:
+        monomers=join(OUTPUT_DIR, "{sm}", "trf_monomers.tsv"),
+    log:
+        join(LOG_DIR, "get_monomers_{sm}.log"),
+    benchmark:
+        join(BMK_DIR, "get_monomers_{sm}.tsv")
+    shell:
+        """
+        {input.bn_trf} {input.motifs} > {output.monomers} 2> {log}
+        touch {output.monomers}
+        """
+
+
+"""
+Filter motifs to those with desired monomer periods. Reduces runtime of mapping.
+"""
+
+
+rule filter_motifs:
+    input:
+        motifs=rules.create_motifs.output,
+        monomers=rules.get_monomers.output,
+    output:
+        motifs=join(OUTPUT_DIR, "{sm}", "srf_filtered.fa"),
+    params:
+        mon_periods=lambda wc: PARAMS[wc.sm].get("mon_periods"),
+        perc_mon_len_diff=lambda wc: PARAMS[wc.sm].get("perc_mon_len_diff"),
+    log:
+        join(LOG_DIR, "filter_motifs_{sm}.log"),
+    benchmark:
+        join(BMK_DIR, "filter_motifs_{sm}.tsv")
+    conda:
+        "envs/tools.yaml"
+    shell:
+        """
+        {input.script} motifs \
+        -f {input.motifs} \
+        -m {input.monomers} \
+        -s {params.mon_periods} \
+        -d {params.perc_mon_len_diff} > {output.motifs} 2> {log}
+        """
+
+
+rule map_motifs:
+    input:
+        motifs=lambda wc: (
+            rules.filter_motifs.output
+            if PARAMS[wc.sm].get("mon_periods")
+            and PARAMS[wc.sm].get("perc_mon_len_diff")
+            else rules.create_motifs.output
+        ),
+        infile=rules.merge_sequences.output,
+    output:
+        join(OUTPUT_DIR, "{sm}", "srf.paf.gz"),
+    log:
+        join(LOG_DIR, "map_motifs_{sm}.log"),
+    benchmark:
+        join(BMK_DIR, "map_motifs_{sm}.tsv")
+    params:
+        script_utils=workflow.source_path(join("scripts", "srf", "srfutils.js")),
         max_secondary_alns=lambda wc: PARAMS[wc.sm].get(
             "mm2_max_secondary_alns", 1_000_000
         ),
@@ -97,52 +210,48 @@ rule find_satellites:
             "mm2_ignore_minimizers_n", 1000
         ),
         aln_bandwidth=lambda wc: PARAMS[wc.sm].get("mm2_aln_bandwidth", "100,100"),
-        working_dir=os.getcwd()
-    # 4 threads per process
     threads: config.get("threads", 16)
     resources:
         mem=config.get("mem", "20GB"),
-        threads_per_process=config.get("threads", 16) // 4
     conda:
         "envs/tools.yaml"
     shell:
         """
-        mkdir -p {output}
-        {{ find {input.infile} -mindepth 1 -maxdepth 1 -not -path '*/.*' | \
-        xargs -P {resources.threads_per_process} -I {{}} bash -c 'cd {params.working_dir}; bash {params.script} \
-            {{}} \
-            {output} \
-            4 \
-            {params.k} \
-            {params.ci} \
-            {params.max_secondary_alns} \
-            {params.ignore_minimizers_n} \
-            {params.aln_bandwidth} \
-            {input.bn_srf} \
-            {input.script_utils} \
-            {input.bn_trf}' ;}} &> {log}
+        {{ minimap2 -c \
+            --eqx \
+            -N {params.max_secondary_alns} \
+            -f {params.ignore_minimizers_n} \
+            -r {params.aln_bandwidth} \
+            -t {threads} \
+            <(k8 {params.script_utils} enlong {input.motifs} 2> {log}) \
+            {input.infile} | \
+            gzip ;}} > {output} 2>> {log}
         """
 
-rule merge_files:
+
+rule paf2bed:
     input:
-        outdir=rules.find_satellites.output
+        paf=rules.map_motifs.output,
     output:
-        bed=join(OUTPUT_DIR, "srf_{sm}.bed"),
-        paf=join(OUTPUT_DIR, "srf_{sm}.paf.gz"),
-        monomers=join(OUTPUT_DIR, "trf_monomers_{sm}.tsv"),
+        join(OUTPUT_DIR, "{sm}", "srf.bed"),
     params:
-        bed_glob=lambda wc, input: join(input[0], "*", "srf.bed"),
-        paf_glob=lambda wc, input: join(input[0], "*", "srf.paf"),
-        monomers_glob=lambda wc, input: join(input[0], "*", "trf_monomers.tsv"),
+        script_utils=workflow.source_path(join("scripts", "srf", "srfutils.js")),
+    log:
+        join(LOG_DIR, "paf2bed_{sm}.log"),
+    benchmark:
+        join(BMK_DIR, "paf2bed_{sm}.tsv")
+    conda:
+        "envs/tools.yaml"
     shell:
         """
-        sort -k1,1 -k2,2n {params.bed_glob} > {output.bed}
-        cat {params.paf_glob} | gzip -f > {output.paf}
-        sort -k1,1 {params.monomers_glob} > {output.monomers}
+        {{ k8 {params.script_utils} paf2bed <(zcat {input.paf}) | sort -k 1,1 -k2,2n ;}} > {output} 2> {log}
         """
 
 
 rule all:
     input:
-        expand(rules.merge_files.output, sm=SAMPLES),
+        expand(rules.create_motifs.output, sm=SAMPLES),
+        expand(rules.get_monomers.output, sm=SAMPLES),
+        expand(rules.map_motifs.output, sm=SAMPLES),
+        expand(rules.paf2bed.output, sm=SAMPLES),
     default_target: True

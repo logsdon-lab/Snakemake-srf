@@ -31,14 +31,20 @@ log_dir: "logs"
 benchmark_dir: "benchmarks"
 samples:
   test_1: 
-    # Directory of fasta files (No multifasta)
+    # Directory of fasta files.
     input_dir: "test"
-    # # Or list of fasta files. (No multifasta)
+    # # Or list of fasta files.
     # input_files: []
+    # # OR single fasta file.
+    # input_file: ""
     parameters: 
       # Config for kmer counting with KMC
       kmer_size: 151
       exclude_kmers_lt_n: 3
+      # Filter only motifs with monomers with these periodicities.
+      mon_periods: [170, 340, 680, 850, 1020, 42]
+      # Allow this % difference in monomer length.
+      perc_mon_len_diff: 0.02
       # Config for minimap2 align SRF motifs to fasta
       mm2_max_secondary_alns: 1000000
       mm2_ignore_minimizers_n: 1000
