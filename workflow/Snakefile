@@ -178,7 +178,7 @@ rule filter_motifs:
         "envs/tools.yaml"
     shell:
         """
-        {input.script} motifs \
+        srf-n-trf motifs \
         -f {input.motifs} \
         -m {input.monomers} \
         -s {params.mon_periods} \
