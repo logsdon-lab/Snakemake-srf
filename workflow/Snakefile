@@ -50,7 +50,7 @@ rule compile_srf:
     log:
         abspath(join(LOG_DIR, "compile_srf.log")),
     params:
-        src_dir=lambda wc, output: dirname(output.bn)
+        src_dir=lambda wc, output: dirname(output.bn),
     conda:
         "envs/tools.yaml"
     shell:
@@ -68,7 +68,7 @@ rule compile_trf:
     log:
         abspath(join(LOG_DIR, "compile_trf.log")),
     params:
-        src_dir=lambda wc, output: dirname(output.bn)
+        src_dir=lambda wc, output: dirname(output.bn),
     conda:
         "envs/tools.yaml"
     shell:
@@ -101,12 +101,11 @@ rule count_kmers:
         # Maximal value of counter.
         cs=100_000,
         output_dir=lambda wc, output: dirname(output.kmer_counts),
-    threads:
-        config.get("threads", 16)
+    threads: config.get("threads", 16)
     log:
         join(LOG_DIR, "count_kmers_{sm}.log"),
     benchmark:
-        join(BMK_DIR, "count_kmers_{sm}.tsv"),
+        join(BMK_DIR, "count_kmers_{sm}.tsv")
     conda:
         "envs/tools.yaml"
     shell:
@@ -130,7 +129,7 @@ rule create_motifs:
     log:
         join(LOG_DIR, "create_motifs_{sm}.log"),
     benchmark:
-        join(BMK_DIR, "create_motifs_{sm}.tsv"),
+        join(BMK_DIR, "create_motifs_{sm}.tsv")
     shell:
         """
         {{ {input.bn_srf} -p prefix {input.kmer_counts} || true ;}} > {output.motifs} 2> {log}
@@ -145,11 +144,11 @@ rule get_monomers:
         bn_trf=rules.compile_trf.output.bn,
         motifs=rules.create_motifs.output,
     output:
-        monomers=join(OUTPUT_DIR, "{sm}", "trf_monomers.tsv")
+        monomers=join(OUTPUT_DIR, "{sm}", "trf_monomers.tsv"),
     log:
         join(LOG_DIR, "get_monomers_{sm}.log"),
     benchmark:
-        join(BMK_DIR, "get_monomers_{sm}.tsv"),
+        join(BMK_DIR, "get_monomers_{sm}.tsv")
     shell:
         """
         {input.bn_trf} {input.motifs} > {output.monomers} 2> {log}
@@ -160,6 +159,8 @@ rule get_monomers:
 """
 Filter motifs to those with desired monomer periods. Reduces runtime of mapping.
 """
+
+
 rule filter_motifs:
     input:
         motifs=rules.create_motifs.output,
@@ -189,7 +190,8 @@ rule map_motifs:
     input:
         motifs=lambda wc: (
             rules.filter_motifs.output
-            if PARAMS[wc.sm].get("mon_periods") and PARAMS[wc.sm].get("perc_mon_len_diff")
+            if PARAMS[wc.sm].get("mon_periods")
+            and PARAMS[wc.sm].get("perc_mon_len_diff")
             else rules.create_motifs.output
         ),
         infile=rules.merge_sequences.output,
@@ -198,7 +200,7 @@ rule map_motifs:
     log:
         join(LOG_DIR, "map_motifs_{sm}.log"),
     benchmark:
-        join(BMK_DIR, "map_motifs_{sm}.tsv"),
+        join(BMK_DIR, "map_motifs_{sm}.tsv")
     params:
         script_utils=workflow.source_path(join("scripts", "srf", "srfutils.js")),
         max_secondary_alns=lambda wc: PARAMS[wc.sm].get(
@@ -229,7 +231,7 @@ rule map_motifs:
 
 rule paf2bed:
     input:
-        paf=rules.map_motifs.output
+        paf=rules.map_motifs.output,
     output:
         join(OUTPUT_DIR, "{sm}", "srf.bed"),
     params:
@@ -237,7 +239,7 @@ rule paf2bed:
     log:
         join(LOG_DIR, "paf2bed_{sm}.log"),
     benchmark:
-        join(BMK_DIR, "paf2bed_{sm}.tsv"),
+        join(BMK_DIR, "paf2bed_{sm}.tsv")
     conda:
         "envs/tools.yaml"
     shell:
