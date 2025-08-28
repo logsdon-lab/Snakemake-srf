@@ -1,4 +1,5 @@
 # Snakemake-srf
+[![CI](https://github.com/logsdon-lab/Snakemake-srf/actions/workflows/main.yml/badge.svg)](https://github.com/logsdon-lab/Snakemake-srf/actions/workflows/main.yml)
 
 Workflow to run [`srf`](https://github.com/lh3/srf) and determine general satellite region(s).
 
