@@ -1,4 +1,5 @@
 import glob
+import shutil
 from typing import Any
 from os.path import join, splitext, abspath, dirname
 
@@ -7,6 +8,8 @@ LOG_DIR = config.get("log_dir", "logs")
 BMK_DIR = config.get("benchmark_dir", "benchmarks")
 OUTPUT_DIR = config.get("output_dir", "results")
 WF_DIR = config.get("workflow_dir", workflow.basedir)
+SRF_INSTALLED = shutil.which("srf")
+TRF_INSTALLED = shutil.which("trf-mod")
 
 
 def get_parameters() -> tuple[dict[str, Any], dict[str, Any]]:
@@ -41,40 +44,45 @@ wildcard_constraints:
     sm="|".join(SAMPLES.keys()),
 
 
-rule compile_srf:
-    input:
-        wf_dir=WF_DIR,
-        src_mk=workflow.source_path("scripts/srf/Makefile"),
-    output:
-        bn=join(WF_DIR, "scripts", "srf", "srf"),
-    log:
-        abspath(join(LOG_DIR, "compile_srf.log")),
-    params:
-        src_dir=lambda wc, output: dirname(output.bn),
-    conda:
-        "envs/tools.yaml"
-    shell:
-        """
-        cd {params.src_dir} && make &> {log}
-        """
+# This is jank but no srf/trf-mod recipe exists. No release either from either repo.
+# For bioconda, we need to build srf and trf-mod but as soon as snakemake runs, it removes existing outputs.
+# https://stackoverflow.com/questions/49178033/snakemake-avoid-removing-output-files-before-executing-the-shell-command
+# So we need to handle the case where srf and trf exists.
+if not SRF_INSTALLED:
+    rule compile_srf:
+        input:
+            wf_dir=WF_DIR,
+            src_mk=workflow.source_path("scripts/srf/Makefile"),
+        output:
+            bn=join(WF_DIR, "scripts", "srf", "srf"),
+        log:
+            abspath(join(LOG_DIR, "compile_srf.log")),
+        params:
+            src_dir=lambda wc, output: dirname(output.bn),
+        conda:
+            "envs/tools.yaml"
+        shell:
+            """
+            cd {params.src_dir} && make &> {log}
+            """
 
-
-rule compile_trf:
-    input:
-        wf_dir=WF_DIR,
-        src_mk=workflow.source_path("scripts/trf/compile.mak"),
-    output:
-        bn=join(WF_DIR, "scripts", "trf", "trf-mod"),
-    log:
-        abspath(join(LOG_DIR, "compile_trf.log")),
-    params:
-        src_dir=lambda wc, output: dirname(output.bn),
-    conda:
-        "envs/tools.yaml"
-    shell:
-        """
-        cd {params.src_dir} && make -f {input.src_mk} &> {log}
-        """
+if not TRF_INSTALLED:
+    rule compile_trf:
+        input:
+            wf_dir=WF_DIR,
+            src_mk=workflow.source_path("scripts/trf/compile.mak"),
+        output:
+            bn=join(WF_DIR, "scripts", "trf", "trf-mod"),
+        log:
+            abspath(join(LOG_DIR, "compile_trf.log")),
+        params:
+            src_dir=lambda wc, output: dirname(output.bn),
+        conda:
+            "envs/tools.yaml"
+        shell:
+            """
+            cd {params.src_dir} && make -f {input.src_mk} &> {log}
+            """
 
 
 rule merge_sequences:
@@ -122,7 +130,7 @@ rule count_kmers:
 
 rule create_motifs:
     input:
-        bn_srf=rules.compile_srf.output.bn,
+        bn_srf=rules.compile_srf.output.bn if not SRF_INSTALLED else [],
         kmer_counts=rules.count_kmers.output,
     output:
         motifs=join(OUTPUT_DIR, "{sm}", "srf.fa"),
@@ -130,9 +138,11 @@ rule create_motifs:
         join(LOG_DIR, "create_motifs_{sm}.log"),
     benchmark:
         join(BMK_DIR, "create_motifs_{sm}.tsv")
+    params:
+        bn_srf=lambda wc, input: input.bn_srf if input.bn_srf else "srf"
     shell:
         """
-        {{ {input.bn_srf} -p prefix {input.kmer_counts} || true ;}} > {output.motifs} 2> {log}
+        {{ {params.bn_srf} -p prefix {input.kmer_counts} || true ;}} > {output.motifs} 2> {log}
         touch {output}
         # Remove any core dumps if fails.
         rm -f core*
@@ -141,17 +151,19 @@ rule create_motifs:
 
 rule get_monomers:
     input:
-        bn_trf=rules.compile_trf.output.bn,
+        bn_trf=rules.compile_trf.output.bn if not TRF_INSTALLED else [],
         motifs=rules.create_motifs.output,
     output:
         monomers=join(OUTPUT_DIR, "{sm}", "trf_monomers.tsv"),
+    params:
+        bn_trf=lambda wc, input: input.bn_trf if input.bn_trf else "trf-mod"
     log:
         join(LOG_DIR, "get_monomers_{sm}.log"),
     benchmark:
         join(BMK_DIR, "get_monomers_{sm}.tsv")
     shell:
         """
-        {input.bn_trf} {input.motifs} > {output.monomers} 2> {log}
+        {params.bn_trf} {input.motifs} > {output.monomers} 2> {log}
         touch {output.monomers}
         """
 

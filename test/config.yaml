@@ -8,7 +8,7 @@ samples:
     parameters:
       # kmer counting
       kmer_size: 171
-      exclude_kmers_lt_n: 20
+      exclude_kmers_lt_n: 2
       # mm2 align motifs to fasta
       mm2_max_secondary_alns: 1000000
       mm2_ignore_minimizers_n: 1000
