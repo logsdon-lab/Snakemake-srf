@@ -248,6 +248,11 @@ rule paf2bed:
         join(OUTPUT_DIR, "{sm}", "srf.bed"),
     params:
         script_utils=workflow.source_path(join("scripts", "srf", "srfutils.js")),
+        paf2bed_min_ident=lambda wc: (
+            f"-d {PARAMS[wc.sm]['paf2bed_min_ident']}"
+            if PARAMS[wc.sm].get("paf2bed_min_ident")
+            else ""
+        )
     log:
         join(LOG_DIR, "paf2bed_{sm}.log"),
     benchmark:
@@ -256,7 +261,7 @@ rule paf2bed:
         "envs/tools.yaml"
     shell:
         """
-        {{ k8 {params.script_utils} paf2bed <(zcat {input.paf}) | sort -k 1,1 -k2,2n ;}} > {output} 2> {log}
+        {{ k8 {params.script_utils} paf2bed {params.paf2bed_min_ident} <(zcat {input.paf}) | sort -k 1,1 -k2,2n ;}} > {output} 2> {log}
         """
 
 
