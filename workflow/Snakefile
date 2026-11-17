@@ -110,6 +110,8 @@ rule count_kmers:
         cs=100_000,
         output_dir=lambda wc, output: dirname(output.kmer_counts),
     threads: config.get("threads", 16)
+    resources:
+        mem=config.get("mem", "20GB"),
     log:
         join(LOG_DIR, "count_kmers_{sm}.log"),
     benchmark:
